@@ -48,7 +48,6 @@ export const handleCosmosPreSign = async (
   switch (interactionData.data.keyType) {
     case "ledger": {
       const appData = interactionData.data.keyInsensitive;
-      console.log(appData);
       if (!appData) {
         throw new Error("Invalid ledger app data");
       }

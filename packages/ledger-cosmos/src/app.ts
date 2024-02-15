@@ -169,11 +169,7 @@ export class YubiApp {
       hashed_message: [...message],
     })) as NativeResponse;
 
-    console.log(message);
-    console.log(response);
-
     if (response.status !== "ok") {
-      console.log("error");
       throw new Error(response.payload || response.error);
     }
 
