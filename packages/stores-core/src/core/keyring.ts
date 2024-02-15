@@ -218,11 +218,21 @@ export class KeyRingStore {
   *newLedgerKey(
     pubKey: Uint8Array,
     app: string,
+    authKeyId: number,
+    objectId: number,
     bip44HDPath: BIP44HDPath,
     name: string,
     password: string | undefined
   ) {
-    const msg = new NewLedgerKeyMsg(pubKey, app, bip44HDPath, name, password);
+    const msg = new NewLedgerKeyMsg(
+      pubKey,
+      app,
+      authKeyId,
+      objectId,
+      bip44HDPath,
+      name,
+      password
+    );
     const result = yield* toGenerator(
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );
@@ -235,8 +245,20 @@ export class KeyRingStore {
   }
 
   @flow
-  *appendLedgerKeyApp(vaultId: string, pubKey: Uint8Array, app: string) {
-    const msg = new AppendLedgerKeyAppMsg(vaultId, pubKey, app);
+  *appendLedgerKeyApp(
+    vaultId: string,
+    pubKey: Uint8Array,
+    authKeyId: number,
+    objectId: number,
+    app: string
+  ) {
+    const msg = new AppendLedgerKeyAppMsg(
+      vaultId,
+      pubKey,
+      authKeyId,
+      objectId,
+      app
+    );
     const result = yield* toGenerator(
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );

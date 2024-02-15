@@ -23,7 +23,8 @@
     "identity",
     "idle",
     "alarms",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "nativeMessaging"
   ],
   "content_scripts": [
     {

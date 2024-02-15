@@ -46,6 +46,8 @@ export const FinalizeKeyScene: FunctionComponent<{
   };
   ledger?: {
     pubKey: Uint8Array;
+    authKeyId: number;
+    objectId: number;
     app: string;
     bip44Path: {
       account: number;
@@ -147,6 +149,8 @@ export const FinalizeKeyScene: FunctionComponent<{
           vaultId = await keyRingStore.newLedgerKey(
             ledger.pubKey,
             ledger.app,
+            ledger.authKeyId,
+            ledger.objectId,
             ledger.bip44Path,
             name,
             password

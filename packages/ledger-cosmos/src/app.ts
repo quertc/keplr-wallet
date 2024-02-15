@@ -36,6 +36,15 @@ import {
   App,
 } from "./types";
 import { CLA, ERROR_CODE, INS } from "./constants";
+import { sendNativeMessage } from "./chrome";
+
+interface NativeResponse {
+  status: "ok" | "panic";
+  payload: any;
+  file?: string;
+  line?: number;
+  error?: string;
+}
 
 export class CosmosApp {
   constructor(public readonly app: string, public readonly transport: any) {
@@ -124,5 +133,54 @@ export class CosmosApp {
       [44, coinType, account, change, addressIndex],
       message
     );
+  }
+}
+
+export class YubiApp {
+  static readonly RETURN_CODE = 0x9000;
+
+  constructor(
+    public readonly app: string,
+    public readonly pkey: Uint8Array,
+    public readonly authKeyId: number,
+    public readonly objectId: number
+  ) {
+    if (app !== "Cosmos" && app !== "Terra" && app !== "Secret") {
+      throw new Error(`Unknown app: ${this.app}`);
+    }
+  }
+
+  getPublicKey(): PublicKeyResponse {
+    return {
+      bech32_address: "",
+      pk: "OBSOLETE PROPERTY",
+      compressed_pk: this.pkey,
+      return_code: YubiApp.RETURN_CODE,
+      error_message: errorCodeToString(YubiApp.RETURN_CODE),
+    };
+  }
+
+  async sign(password: string, message: Uint8Array): Promise<SignResponse> {
+    const response = (await sendNativeMessage("yubihsm_native_host", {
+      method: "createSignature",
+      auth_key_id: this.authKeyId,
+      password,
+      signing_key_id: this.objectId,
+      hashed_message: [...message],
+    })) as NativeResponse;
+
+    console.log(message);
+    console.log(response);
+
+    if (response.status !== "ok") {
+      console.log("error");
+      throw new Error(response.payload || response.error);
+    }
+
+    return {
+      return_code: YubiApp.RETURN_CODE,
+      error_message: errorCodeToString(YubiApp.RETURN_CODE),
+      signature: new Uint8Array(response.payload),
+    };
   }
 }

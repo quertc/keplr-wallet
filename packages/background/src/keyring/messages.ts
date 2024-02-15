@@ -185,6 +185,8 @@ export class NewLedgerKeyMsg extends Message<{
   constructor(
     public readonly pubKey: Uint8Array,
     public readonly app: string,
+    public readonly authKeyId: number,
+    public readonly objectId: number,
     public readonly bip44HDPath: BIP44HDPath,
     public readonly name: string,
     public readonly password?: string
@@ -307,6 +309,8 @@ export class AppendLedgerKeyAppMsg extends Message<{
   constructor(
     public readonly vaultId: string,
     public readonly pubKey: Uint8Array,
+    public readonly authKeyId: number,
+    public readonly objectId: number,
     public readonly app: string
   ) {
     super();

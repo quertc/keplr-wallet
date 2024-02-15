@@ -376,6 +376,8 @@ export class KeyRingService {
                 keyStore.meta?.["__ledger__cosmos_app_like__"] === "Terra"
                   ? "Terra"
                   : "Cosmos",
+                null,
+                null,
                 keyStore.bip44HDPath ?? {
                   account: 0,
                   change: 0,
@@ -391,7 +393,13 @@ export class KeyRingService {
                   encodedPubkeys["ethereum"] as string,
                   "hex"
                 );
-                this.appendLedgerKeyRing(vaultId, pubKey, "Ethereum");
+                this.appendLedgerKeyRing(
+                  vaultId,
+                  pubKey,
+                  null,
+                  null,
+                  "Ethereum"
+                );
 
                 hasEthereum = true;
               }
@@ -427,6 +435,8 @@ export class KeyRingService {
             const vaultId = await this.createLedgerKeyRing(
               pubKey,
               "Cosmos",
+              null,
+              null,
               keyStore.bip44HDPath ?? {
                 account: 0,
                 change: 0,
@@ -678,6 +688,8 @@ export class KeyRingService {
   async createLedgerKeyRing(
     pubKey: Uint8Array,
     app: string,
+    authKeyId: number | null,
+    objectId: number | null,
     bip44Path: BIP44HDPath,
     name: string,
     password?: string
@@ -692,8 +704,18 @@ export class KeyRingService {
 
     KeyRingService.validateBIP44Path(bip44Path);
 
+    if (authKeyId == null || objectId == null) {
+      throw new Error("Migration from Legacy is not supported");
+    }
+
     const keyRing = this.getKeyRing("ledger");
-    const vaultData = await keyRing.createKeyRingVault(pubKey, app, bip44Path);
+    const vaultData = await keyRing.createKeyRingVault(
+      pubKey,
+      app,
+      authKeyId,
+      objectId,
+      bip44Path
+    );
 
     const id = this.vaultService.addVault(
       "keyRing",
@@ -807,7 +829,13 @@ export class KeyRingService {
     return id;
   }
 
-  appendLedgerKeyRing(id: string, pubKey: Uint8Array, app: string) {
+  appendLedgerKeyRing(
+    id: string,
+    pubKey: Uint8Array,
+    authKeyId: number | null,
+    objectId: number | null,
+    app: string
+  ) {
     const vault = this.vaultService.getVault("keyRing", id);
     if (!vault) {
       throw new Error("Vault is null");
@@ -821,9 +849,15 @@ export class KeyRingService {
       throw new Error("App is already appended");
     }
 
+    if (authKeyId == null || objectId == null) {
+      throw new Error("Migration from Legacy is not supported");
+    }
+
     this.vaultService.setAndMergeInsensitiveToVault("keyRing", id, {
       [app]: {
         pubKey: Buffer.from(pubKey).toString("hex"),
+        authKeyId,
+        objectId,
       },
     });
   }

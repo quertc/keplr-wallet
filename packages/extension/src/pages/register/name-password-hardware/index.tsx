@@ -14,7 +14,7 @@ import { Gutter } from "../../../components/gutter";
 import { observer } from "mobx-react-lite";
 import { useIntl } from "react-intl";
 import { Dropdown } from "../../../components/dropdown";
-import { Label } from "../../../components/input";
+import { Label, TextInput } from "../../../components/input";
 
 export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   type: string;
@@ -39,6 +39,9 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   const form = useFormNamePassword();
 
   const [connectTo, setConnectTo] = useState<string>("Cosmos");
+  const [authKeyId, setAuthKeyId] = useState<string>("");
+  const [authKeyPassword, setAuthKeyPassword] = useState<string>("");
+  const [objectId, setObjectId] = useState<string>("");
 
   const bip44PathState = useBIP44PathState();
   const [isBIP44CardOpen, setIsBIP44CardOpen] = useState(false);
@@ -52,6 +55,9 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
               name: data.name,
               password: data.password,
               app: connectTo,
+              authKeyId,
+              authKeyPassword,
+              objectId,
               bip44Path: bip44PathState.getPath(),
               stepPrevious: 1,
               stepTotal: 3,
@@ -104,6 +110,25 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
                 onSelect={(key) => {
                   setConnectTo(key);
                 }}
+              />
+              <Gutter size="1rem" />
+              <TextInput
+                label="Auth Key ID"
+                value={authKeyId}
+                onChange={(e) => setAuthKeyId(e.target.value)}
+              />
+              <Gutter size="1rem" />
+              <TextInput
+                label="Password for this Auth Key"
+                type="password"
+                value={authKeyPassword}
+                onChange={(e) => setAuthKeyPassword(e.target.value)}
+              />
+              <Gutter size="1rem" />
+              <TextInput
+                label="Object ID"
+                value={objectId}
+                onChange={(e) => setObjectId(e.target.value)}
               />
               <Gutter size="1.625rem" />
               <VerticalCollapseTransition

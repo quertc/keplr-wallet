@@ -29,6 +29,7 @@ module.exports = {
     "@typescript-eslint/camelcase": "off",
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
+    "@typescript-eslint/ban-ts-comment": "off",
     "unicorn/filename-case": [
       "error",
       {

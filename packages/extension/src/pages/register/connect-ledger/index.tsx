@@ -12,28 +12,33 @@ import { Body1, H2, Subtitle2 } from "../../../components/typography";
 import { ColorPalette } from "../../../styles";
 import { Stack } from "../../../components/stack";
 import { Button } from "../../../components/button";
-import { App, AppHRP, CosmosApp } from "@keplr-wallet/ledger-cosmos";
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
+import { App, AppHRP, YubiApp } from "@keplr-wallet/ledger-cosmos";
 import { observer } from "mobx-react-lite";
-import Transport from "@ledgerhq/hw-transport";
 import { useStore } from "../../../stores";
 import { useNavigate } from "react-router";
-import Eth from "@ledgerhq/hw-app-eth";
-import { Buffer } from "buffer/";
-import { PubKeySecp256k1 } from "@keplr-wallet/crypto";
-import { LedgerUtils } from "../../../utils";
+import { sendNativeMessage } from "../../../utils";
 import { Checkbox } from "../../../components/checkbox";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import { useConfirm } from "../../../hooks/confirm";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTheme } from "styled-components";
 
 type Step = "unknown" | "connected" | "app";
 
+interface NativeResponse {
+  status: "ok" | "panic";
+  payload: any;
+  file?: string;
+  line?: number;
+  error?: string;
+}
+
 export const ConnectLedgerScene: FunctionComponent<{
   name: string;
   password: string;
   app: App | "Ethereum";
+  authKeyId: string;
+  authKeyPassword: string;
+  objectId: string;
   bip44Path: {
     account: number;
     change: number;
@@ -52,6 +57,9 @@ export const ConnectLedgerScene: FunctionComponent<{
     name,
     password,
     app: propApp,
+    authKeyId,
+    authKeyPassword,
+    objectId,
     bip44Path,
     appendModeInfo,
     stepPrevious,
@@ -95,122 +103,47 @@ export const ConnectLedgerScene: FunctionComponent<{
     const connectLedger = async () => {
       setIsLoading(true);
 
-      let transport: Transport;
+      let key;
 
       try {
-        transport = uiConfigStore.useWebHIDLedger
-          ? await TransportWebHID.create()
-          : await TransportWebUSB.create();
-      } catch {
-        setStep("unknown");
-        setIsLoading(false);
-        return;
-      }
+        const authKeyIdNum = Number(authKeyId);
+        const objectIdNum = Number(objectId);
 
-      if (propApp === "Ethereum") {
-        let ethApp = new Eth(transport);
-
-        // Ensure that the keplr can connect to ethereum app on ledger.
-        // getAppConfiguration() works even if the ledger is on screen saver mode.
-        // To detect the screen saver mode, we should request the address before using.
-        try {
-          await ethApp.getAddress(`m/44'/60'/'0/0/0`);
-        } catch (e) {
-          // Device is locked or user is in home sceen or other app.
-          if (
-            e?.message.includes("(0x6b0c)") ||
-            e?.message.includes("(0x6511)") ||
-            e?.message.includes("(0x6e00)")
-          ) {
-            setStep("connected");
-          } else {
-            console.log(e);
-            setStep("unknown");
-            await transport.close();
-
-            setIsLoading(false);
-            return;
-          }
+        if (!Number.isInteger(authKeyIdNum) || !Number.isInteger(objectIdNum)) {
+          throw new Error("authKeyId and objectId must be integers");
         }
 
-        transport = await LedgerUtils.tryAppOpen(transport, propApp);
-        ethApp = new Eth(transport);
+        const response = (await sendNativeMessage("yubihsm_native_host", {
+          method: "getAsymmetricKey",
+          auth_key_id: authKeyIdNum,
+          password: authKeyPassword,
+          object_id: objectIdNum,
+        })) as NativeResponse;
 
-        try {
-          const res = await ethApp.getAddress(
-            `m/44'/60'/${bip44Path.account}'/${bip44Path.change}/${bip44Path.addressIndex}`
-          );
-
-          const pubKey = new PubKeySecp256k1(Buffer.from(res.publicKey, "hex"));
-
-          setStep("app");
-
-          if (appendModeInfo) {
-            await keyRingStore.appendLedgerKeyApp(
-              appendModeInfo.vaultId,
-              pubKey.toBytes(true),
-              propApp
-            );
-            await chainStore.enableChainInfoInUI(
-              ...appendModeInfo.afterEnableChains
-            );
-            navigate("/welcome", {
-              replace: true,
-            });
-          } else {
-            sceneTransition.replaceAll("finalize-key", {
-              name,
-              password,
-              ledger: {
-                pubKey: pubKey.toBytes(),
-                app: propApp,
-                bip44Path,
-              },
-              stepPrevious: stepPrevious + 1,
-              stepTotal: stepTotal,
-            });
-          }
-        } catch (e) {
-          console.log(e);
-          setStep("connected");
+        if (response.status !== "ok") {
+          throw new Error(response.payload || response.error);
         }
 
-        await transport.close();
-
-        setIsLoading(false);
-
-        return;
-      }
-
-      let app = new CosmosApp(propApp, transport);
-
-      try {
-        const version = await app.getVersion();
-        if (version.device_locked) {
-          throw new Error("Device is locked");
+        if (response.payload.length !== 0) {
+          key = response.payload[0];
         }
 
-        // XXX: You must not check "error_message".
-        //      If "error_message" is not "No errors",
-        //      probably it doesn't mean that the device is not connected.
         setStep("connected");
       } catch (e) {
         console.log(e);
         setStep("unknown");
-        await transport.close();
-
         setIsLoading(false);
         return;
       }
 
-      transport = await LedgerUtils.tryAppOpen(transport, propApp);
-      app = new CosmosApp(propApp, transport);
-
-      const res = await app.getPublicKey(
-        bip44Path.account,
-        bip44Path.change,
-        bip44Path.addressIndex
+      const app = new YubiApp(
+        propApp,
+        key.public_key,
+        Number(authKeyId),
+        Number(objectId)
       );
+
+      const res = app.getPublicKey();
       if (res.error_message === "No errors") {
         setStep("app");
 
@@ -218,6 +151,8 @@ export const ConnectLedgerScene: FunctionComponent<{
           await keyRingStore.appendLedgerKeyApp(
             appendModeInfo.vaultId,
             res.compressed_pk,
+            Number(authKeyId),
+            Number(objectId),
             propApp
           );
           await chainStore.enableChainInfoInUI(
@@ -233,6 +168,8 @@ export const ConnectLedgerScene: FunctionComponent<{
             ledger: {
               pubKey: res.compressed_pk,
               app: propApp,
+              authKeyId: Number(authKeyId),
+              objectId: Number(objectId),
               bip44Path,
             },
             stepPrevious: stepPrevious + 1,
@@ -242,8 +179,6 @@ export const ConnectLedgerScene: FunctionComponent<{
       } else {
         setStep("connected");
       }
-
-      await transport.close();
 
       setIsLoading(false);
     };

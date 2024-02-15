@@ -208,6 +208,8 @@ const handleNewLedgerKeyMsg: (
     const vaultId = await service.createLedgerKeyRing(
       msg.pubKey,
       msg.app,
+      msg.authKeyId,
+      msg.objectId,
       msg.bip44HDPath,
       msg.name,
       msg.password
@@ -259,7 +261,13 @@ const handleAppendLedgerKeyAppMsg: (
   service: KeyRingService
 ) => InternalHandler<AppendLedgerKeyAppMsg> = (service) => {
   return (_, msg) => {
-    service.appendLedgerKeyRing(msg.vaultId, msg.pubKey, msg.app);
+    service.appendLedgerKeyRing(
+      msg.vaultId,
+      msg.pubKey,
+      msg.authKeyId,
+      msg.objectId,
+      msg.app
+    );
     return {
       status: service.keyRingStatus,
       keyInfos: service.getKeyInfos(),

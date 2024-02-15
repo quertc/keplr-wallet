@@ -17,6 +17,8 @@ export class KeyRingLedgerService {
   createKeyRingVault(
     pubKey: Uint8Array,
     app: string,
+    authKeyId: number,
+    objectId: number,
     bip44Path: {
       account: number;
       change: number;
@@ -30,6 +32,8 @@ export class KeyRingLedgerService {
       insensitive: {
         [app]: {
           pubKey: Buffer.from(pubKey).toString("hex"),
+          authKeyId,
+          objectId,
         },
         bip44Path,
       },

@@ -48,6 +48,7 @@ export const handleCosmosPreSign = async (
   switch (interactionData.data.keyType) {
     case "ledger": {
       const appData = interactionData.data.keyInsensitive;
+      console.log(appData);
       if (!appData) {
         throw new Error("Invalid ledger app data");
       }
@@ -103,11 +104,15 @@ export const handleCosmosPreSign = async (
         throw new Error("Sign doc not found");
       }
 
+      const cosmos = appData["Cosmos"] as any;
+      const authKeyId = cosmos["authKeyId"] as number;
+      const objectId = cosmos["objectId"] as number;
+
       return await connectAndSignWithLedger(
-        (options as LedgerOptions).useWebHID,
         ledgerApp,
         publicKey,
-        bip44Path,
+        authKeyId,
+        objectId,
         signDocWrapper.aminoSignDoc
       );
     }

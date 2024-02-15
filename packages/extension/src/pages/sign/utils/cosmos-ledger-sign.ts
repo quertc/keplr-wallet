@@ -1,12 +1,11 @@
 import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import Transport from "@ledgerhq/hw-transport";
-import { CosmosApp } from "@keplr-wallet/ledger-cosmos";
+import { YubiApp } from "@keplr-wallet/ledger-cosmos";
 import { KeplrError } from "@keplr-wallet/router";
 import { PubKeySecp256k1 } from "@keplr-wallet/crypto";
 import { Buffer } from "buffer/";
 import { StdSignDoc } from "@keplr-wallet/types";
 import { serializeSignDoc } from "@keplr-wallet/cosmos";
-import { signatureImport } from "secp256k1";
 import { LedgerUtils } from "../../../utils";
 import Eth from "@ledgerhq/hw-app-eth";
 import { EIP712MessageValidator } from "@keplr-wallet/background";
@@ -22,6 +21,7 @@ import {
   ErrFailedSign,
   ErrSignRejected,
 } from "./ledger-types";
+import { Hash } from "@keplr-wallet/crypto";
 
 export const connectAndSignEIP712WithLedger = async (
   useWebHID: boolean,
@@ -165,14 +165,10 @@ export const connectAndSignEIP712WithLedger = async (
 };
 
 export const connectAndSignWithLedger = async (
-  useWebHID: boolean,
   propApp: string,
-  expectedPubKey: Uint8Array,
-  bip44Path: {
-    account: number;
-    change: number;
-    addressIndex: number;
-  },
+  pubKey: Uint8Array,
+  authKeyId: number,
+  objectId: number,
   signDoc: StdSignDoc
 ): Promise<Uint8Array> => {
   if (propApp !== "Cosmos" && propApp !== "Terra" && propApp !== "Secret") {
@@ -183,90 +179,29 @@ export const connectAndSignWithLedger = async (
     );
   }
 
-  let transport: Transport;
-  try {
-    transport = useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
-  } catch (e) {
+  const app = new YubiApp(propApp, pubKey, authKeyId, objectId);
+
+  const signResponse = await app.sign(
+    "password",
+    Hash.sha256(serializeSignDoc(signDoc))
+  );
+
+  if (signResponse.error_message === "No errors") {
+    return signResponse.signature;
+  } else {
+    if (signResponse.error_message === "Transaction rejected") {
+      throw new KeplrError(
+        ErrModuleLedgerSign,
+        ErrSignRejected,
+        signResponse.error_message
+      );
+    }
+
     throw new KeplrError(
       ErrModuleLedgerSign,
-      ErrFailedInit,
-      "Failed to init transport"
+      ErrFailedSign,
+      signResponse.error_message
     );
-  }
-  let app = new CosmosApp(propApp, transport);
-
-  try {
-    const version = await app.getVersion();
-    if (version.device_locked) {
-      throw new KeplrError(
-        ErrModuleLedgerSign,
-        ErrCodeDeviceLocked,
-        "Device is locked"
-      );
-    }
-  } catch (e) {
-    await transport.close();
-
-    throw e;
-  }
-
-  transport = await LedgerUtils.tryAppOpen(transport, propApp);
-  app = new CosmosApp(propApp, transport);
-
-  try {
-    const res = await app.getPublicKey(
-      bip44Path.account,
-      bip44Path.change,
-      bip44Path.addressIndex
-    );
-    if (res.error_message === "No errors") {
-      const pubKey = new PubKeySecp256k1(res.compressed_pk);
-      const expected = new PubKeySecp256k1(expectedPubKey);
-      if (
-        Buffer.from(pubKey.toBytes()).toString() !==
-        Buffer.from(expected.toBytes()).toString()
-      ) {
-        throw new KeplrError(
-          ErrModuleLedgerSign,
-          ErrPublicKeyUnmatched,
-          "Public key unmatched"
-        );
-      }
-
-      const signResponse = await app.sign(
-        bip44Path.account,
-        bip44Path.change,
-        bip44Path.addressIndex,
-        serializeSignDoc(signDoc)
-      );
-      if (signResponse.error_message === "No errors") {
-        return signatureImport(signResponse.signature);
-      } else {
-        if (signResponse.error_message === "Transaction rejected") {
-          throw new KeplrError(
-            ErrModuleLedgerSign,
-            ErrSignRejected,
-            signResponse.error_message
-          );
-        }
-
-        throw new KeplrError(
-          ErrModuleLedgerSign,
-          ErrFailedSign,
-          signResponse.error_message
-        );
-      }
-    } else {
-      throw new KeplrError(
-        ErrModuleLedgerSign,
-        ErrFailedGetPublicKey,
-        res.error_message
-      );
-    }
-  } finally {
-    await transport.close();
   }
 };
 
