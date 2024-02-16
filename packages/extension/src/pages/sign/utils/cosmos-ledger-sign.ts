@@ -169,6 +169,7 @@ export const connectAndSignWithLedger = async (
   pubKey: Uint8Array,
   authKeyId: number,
   objectId: number,
+  authKeyPassword: string,
   signDoc: StdSignDoc
 ): Promise<Uint8Array> => {
   if (propApp !== "Cosmos" && propApp !== "Terra" && propApp !== "Secret") {
@@ -182,7 +183,7 @@ export const connectAndSignWithLedger = async (
   const app = new YubiApp(propApp, pubKey, authKeyId, objectId);
 
   const signResponse = await app.sign(
-    "password",
+    authKeyPassword,
     Hash.sha256(serializeSignDoc(signDoc))
   );
 

@@ -7,6 +7,7 @@ import { H5, Subtitle3 } from "../../../../components/typography";
 import { ColorPalette } from "../../../../styles";
 import { ViewDataButton } from "../../components/view-data-button";
 import { MessageItem } from "../../components/message-item";
+import { TextInput } from "../../../../components/input";
 import { Stack } from "../../../../components/stack";
 import { MemoInput } from "../../../../components/input/memo-input";
 import { FeeControl } from "../../../../components/input/fee-control";
@@ -66,6 +67,7 @@ export const CosmosTxView: FunctionComponent<{
   const theme = useTheme();
 
   const [isViewData, setIsViewData] = useState(false);
+  const [authKeyPassword, setAuthKeyPassword] = useState("");
 
   const chainId = interactionData.data.chainId;
   const signer = interactionData.data.signer;
@@ -314,6 +316,7 @@ export const CosmosTxView: FunctionComponent<{
   const isLedgerAndDirect =
     interactionData.data.keyType === "ledger" &&
     interactionData.data.mode === "direct";
+  const isLedger = interactionData.data.keyType === "ledger";
 
   const [isLedgerInteracting, setIsLedgerInteracting] = useState(false);
   const [ledgerInteractingError, setLedgerInteractingError] = useState<
@@ -363,6 +366,7 @@ export const CosmosTxView: FunctionComponent<{
         const signature = await handleCosmosPreSign(
           interactionData,
           signDocHelper.signDocWrapper,
+          authKeyPassword,
           presignOptions
         );
 
@@ -569,6 +573,20 @@ export const CosmosTxView: FunctionComponent<{
             ) : (
               <MemoInput memoConfig={memoConfig} />
             )}
+
+            {isLedger ? (
+              <Box>
+                <TextInput
+                  label={`Password for Auth Key Id #${
+                    (interactionData.data.keyInsensitive["Cosmos"] as any)[
+                      "authKeyId"
+                    ]
+                  }`}
+                  value={authKeyPassword}
+                  onChange={(e) => setAuthKeyPassword(e.target.value)}
+                />
+              </Box>
+            ) : null}
 
             <FeeControl
               feeConfig={feeConfig}

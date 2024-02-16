@@ -704,7 +704,7 @@ export class KeyRingService {
 
     KeyRingService.validateBIP44Path(bip44Path);
 
-    if (authKeyId == null || objectId == null) {
+    if (authKeyId === null || objectId === null) {
       throw new Error("Migration from Legacy is not supported");
     }
 
@@ -849,7 +849,7 @@ export class KeyRingService {
       throw new Error("App is already appended");
     }
 
-    if (authKeyId == null || objectId == null) {
+    if (authKeyId === null || objectId === null) {
       throw new Error("Migration from Legacy is not supported");
     }
 

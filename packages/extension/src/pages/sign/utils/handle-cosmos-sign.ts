@@ -43,6 +43,7 @@ export type PreSignOptions = LedgerOptions | KeystoneOptions;
 export const handleCosmosPreSign = async (
   interactionData: NonNullable<SignInteractionStore["waitingData"]>,
   signDocWrapper: SignDocWrapper,
+  authKeyPassword: string,
   options?: PreSignOptions
 ): Promise<Uint8Array | undefined> => {
   switch (interactionData.data.keyType) {
@@ -112,6 +113,7 @@ export const handleCosmosPreSign = async (
         publicKey,
         authKeyId,
         objectId,
+        authKeyPassword,
         signDocWrapper.aminoSignDoc
       );
     }

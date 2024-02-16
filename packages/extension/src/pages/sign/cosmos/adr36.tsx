@@ -182,6 +182,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
               const signature = await handleCosmosPreSign(
                 signInteractionStore.waitingData,
                 signDocWrapper,
+                "",
                 presignOptions
               );
 
