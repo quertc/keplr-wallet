@@ -43,7 +43,6 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   const [authKeyIdView, setAuthKeyIdView] = useState<string>("");
   const [authKeyIdSign, setAuthKeyIdSign] = useState<string>("");
   const [authKeyViewPassword, setAuthKeyViewPassword] = useState<string>("");
-  const [objectId, setObjectId] = useState<string>("");
   const [isSameAuthKey, setIsSameAuthKey] = useState<boolean>(true);
 
   const handleToggleChange = (isOpen: boolean) => {
@@ -84,7 +83,6 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
               authKeyIdView,
               authKeyIdSign,
               authKeyViewPassword,
-              objectId,
               bip44Path: bip44PathState.getPath(),
               stepPrevious: 1,
               stepTotal: 3,
@@ -162,12 +160,6 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
                   <Gutter size="1rem" />
                 </React.Fragment>
               )}
-              <TextInput
-                label="Object ID"
-                value={objectId}
-                onChange={(e) => setObjectId(e.target.value)}
-              />
-              <Gutter size="1rem" />
               <div
                 style={{
                   display: "flex",

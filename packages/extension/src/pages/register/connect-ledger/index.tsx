@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useState } from "react";
+import React, { FunctionComponent, useState, useEffect } from "react";
 import { RegisterSceneBox } from "../components/register-scene-box";
 import {
   useSceneEvents,
@@ -8,7 +8,12 @@ import { useRegisterHeader } from "../components/header";
 import { Gutter } from "../../../components/gutter";
 import { Box } from "../../../components/box";
 import { XAxis, YAxis } from "../../../components/axis";
-import { Body1, H2, Subtitle2 } from "../../../components/typography";
+import {
+  Body1,
+  H2,
+  Subtitle2,
+  Subtitle3,
+} from "../../../components/typography";
 import { ColorPalette } from "../../../styles";
 import { Stack } from "../../../components/stack";
 import { Button } from "../../../components/button";
@@ -17,10 +22,11 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "../../../stores";
 import { useNavigate } from "react-router";
 import { sendNativeMessage } from "../../../utils";
-import { Checkbox } from "../../../components/checkbox";
-import { useConfirm } from "../../../hooks/confirm";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTheme } from "styled-components";
+import { Column, Columns } from "../../../components/column";
+import { Checkbox } from "../../../components/checkbox";
+import SimpleBar from "simplebar-react";
 
 type Step = "unknown" | "connected" | "app";
 
@@ -32,6 +38,13 @@ interface NativeResponse {
   error?: string;
 }
 
+interface KeyEntry {
+  object_id: number;
+  object_type: string;
+  sequence: number;
+  public_key: Uint8Array;
+}
+
 export const ConnectLedgerScene: FunctionComponent<{
   name: string;
   password: string;
@@ -39,7 +52,6 @@ export const ConnectLedgerScene: FunctionComponent<{
   authKeyIdView: string;
   authKeyIdSign: string;
   authKeyViewPassword: string;
-  objectId: string;
   bip44Path: {
     account: number;
     change: number;
@@ -61,7 +73,6 @@ export const ConnectLedgerScene: FunctionComponent<{
     authKeyIdView,
     authKeyIdSign,
     authKeyViewPassword,
-    objectId,
     bip44Path,
     appendModeInfo,
     stepPrevious,
@@ -94,13 +105,52 @@ export const ConnectLedgerScene: FunctionComponent<{
       },
     });
 
-    const { chainStore, keyRingStore, uiConfigStore } = useStore();
+    const { chainStore, keyRingStore } = useStore();
 
     const navigate = useNavigate();
-    const confirm = useConfirm();
+    const theme = useTheme();
 
+    const [keys, setKeys] = useState<KeyEntry[]>([]);
+    const [selectedKeyId, setSelectedKeyId] = useState<string>("");
     const [step, setStep] = useState<Step>("unknown");
     const [isLoading, setIsLoading] = useState(false);
+
+    const toggleKeySelection = (objectId: string) => {
+      setSelectedKeyId((prevSelectedKeyId) =>
+        prevSelectedKeyId === objectId ? "" : objectId
+      );
+    };
+
+    useEffect(() => {
+      const fetchKeys = async () => {
+        setIsLoading(true);
+        try {
+          const authKeyIdViewNum = Number(authKeyIdView);
+
+          if (!Number.isInteger(authKeyIdViewNum)) {
+            throw new Error("authKeyIdView must be integer");
+          }
+
+          const response = (await sendNativeMessage("yubihsm_native_host", {
+            method: "listAsymmetricKeys",
+            auth_key_id: authKeyIdViewNum,
+            password: authKeyViewPassword,
+          })) as NativeResponse;
+
+          if (response.status !== "ok") {
+            throw new Error(response.payload || response.error);
+          }
+
+          setKeys(response.payload);
+        } catch (e) {
+          console.log(e);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchKeys();
+    }, [authKeyIdView, authKeyViewPassword]);
 
     const connectLedger = async () => {
       setIsLoading(true);
@@ -108,21 +158,25 @@ export const ConnectLedgerScene: FunctionComponent<{
       let key;
 
       try {
+        if (!selectedKeyId) {
+          throw new Error("selectedKeyId must be set");
+        }
+
         const authKeyIdViewNum = Number(authKeyIdView);
-        const objectIdNum = Number(objectId);
+        const selectedKeyIdNum = Number(selectedKeyId);
 
         if (
           !Number.isInteger(authKeyIdViewNum) ||
-          !Number.isInteger(objectIdNum)
+          !Number.isInteger(selectedKeyIdNum)
         ) {
-          throw new Error("authKeyIdView and objectId must be integers");
+          throw new Error("authKeyIdView and selectedKeyId must be integers");
         }
 
         const response = (await sendNativeMessage("yubihsm_native_host", {
           method: "getAsymmetricKey",
           auth_key_id: authKeyIdViewNum,
           password: authKeyViewPassword,
-          object_id: objectIdNum,
+          object_id: selectedKeyIdNum,
         })) as NativeResponse;
 
         if (response.status !== "ok") {
@@ -143,7 +197,7 @@ export const ConnectLedgerScene: FunctionComponent<{
         propApp,
         key.public_key,
         Number(authKeyIdSign),
-        Number(objectId)
+        Number(selectedKeyId)
       );
 
       const res = app.getPublicKey();
@@ -155,7 +209,7 @@ export const ConnectLedgerScene: FunctionComponent<{
             appendModeInfo.vaultId,
             res.compressed_pk,
             Number(authKeyIdSign),
-            Number(objectId),
+            Number(selectedKeyId),
             propApp
           );
           await chainStore.enableChainInfoInUI(
@@ -172,7 +226,7 @@ export const ConnectLedgerScene: FunctionComponent<{
               pubKey: res.compressed_pk,
               app: propApp,
               authKeyId: Number(authKeyIdSign),
-              objectId: Number(objectId),
+              objectId: Number(selectedKeyId),
               bip44Path,
             },
             stepPrevious: stepPrevious + 1,
@@ -188,6 +242,43 @@ export const ConnectLedgerScene: FunctionComponent<{
 
     return (
       <RegisterSceneBox>
+        <Subtitle3
+          color={
+            theme.mode === "light"
+              ? ColorPalette["gray-600"]
+              : ColorPalette.white
+          }
+          style={{
+            textAlign: "center",
+          }}
+        >
+          Choose a key
+        </Subtitle3>
+        <Gutter size="0.75rem" />
+        <SimpleBar
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            overflowY: "auto",
+            maxHeight: "25.5rem",
+          }}
+        >
+          <Stack gutter="0.5rem">
+            {keys.map((key) => {
+              const enabled = selectedKeyId === `${key.object_id}`;
+              return (
+                <KeyItem
+                  key={key.object_id}
+                  keyId={key.object_id}
+                  keyType={key.object_type}
+                  enabled={enabled}
+                  onClick={() => toggleKeySelection(`${key.object_id}`)}
+                />
+              );
+            })}
+          </Stack>
+        </SimpleBar>
+        <Gutter size="1.65rem" />
         <Stack gutter="1.25rem">
           <StepView
             step={1}
@@ -228,44 +319,7 @@ export const ConnectLedgerScene: FunctionComponent<{
             completed={step === "app"}
           />
         </Stack>
-
         <Gutter size="1.25rem" />
-        <YAxis alignX="center">
-          <XAxis alignY="center">
-            <Checkbox
-              checked={uiConfigStore.useWebHIDLedger}
-              onChange={async (checked) => {
-                if (checked && !window.navigator.hid) {
-                  await confirm.confirm(
-                    intl.formatMessage({
-                      id: "pages.register.connect-ledger.use-hid-confirm-title",
-                    }),
-                    intl.formatMessage({
-                      id: "pages.register.connect-ledger.use-hid-confirm-paragraph",
-                    }),
-                    {
-                      forceYes: true,
-                    }
-                  );
-                  await browser.tabs.create({
-                    url: "chrome://flags/#enable-experimental-web-platform-features",
-                  });
-                  window.close();
-                  return;
-                }
-
-                uiConfigStore.setUseWebHIDLedger(checked);
-              }}
-            />
-            <Gutter size="0.5rem" />
-            <Subtitle2 color={ColorPalette["gray-300"]}>
-              <FormattedMessage id="pages.register.connect-ledger.use-hid-text" />
-            </Subtitle2>
-          </XAxis>
-        </YAxis>
-
-        <Gutter size="1.25rem" />
-
         <Box width="22.5rem" marginX="auto">
           <Button
             text={intl.formatMessage({
@@ -357,6 +411,72 @@ const StepView: FunctionComponent<{
     </Box>
   );
 };
+
+const KeyItem: FunctionComponent<{
+  keyId: number;
+  keyType: string;
+  enabled: boolean;
+  onClick: () => void;
+}> = observer(({ keyId, keyType, enabled, onClick }) => {
+  const theme = useTheme();
+
+  return (
+    <Box
+      borderRadius="0.375rem"
+      paddingX="1rem"
+      paddingY="0.75rem"
+      backgroundColor={
+        enabled
+          ? theme.mode === "light"
+            ? ColorPalette["gray-10"]
+            : ColorPalette["gray-500"]
+          : theme.mode === "light"
+          ? ColorPalette.white
+          : ColorPalette["gray-600"]
+      }
+      cursor={enabled ? "not-allowed" : "pointer"}
+      onClick={() => {
+        if (!enabled) {
+          onClick();
+        }
+      }}
+    >
+      <Columns sum={1}>
+        <XAxis alignY="center">
+          <YAxis>
+            <Subtitle2>{keyType}</Subtitle2>
+          </YAxis>
+        </XAxis>
+        <Column weight={1} />
+        <XAxis alignY="center">
+          <YAxis alignX="right">
+            <Subtitle3
+              color={
+                theme.mode === "light"
+                  ? ColorPalette["gray-600"]
+                  : ColorPalette.white
+              }
+            >
+              Key Id
+            </Subtitle3>
+            <Gutter size="0.25rem" />
+            <Subtitle3 color={ColorPalette["gray-300"]}>{keyId}</Subtitle3>
+          </YAxis>
+          <Gutter size="1rem" />
+          <Checkbox
+            checked={enabled}
+            disabled
+            onChange={() => {
+              if (!enabled) {
+                onClick();
+              }
+            }}
+          />
+        </XAxis>
+      </Columns>
+    </Box>
+  );
+});
 
 const CheckIcon: FunctionComponent<{
   color: string;
