@@ -36,8 +36,9 @@ export const ConnectLedgerScene: FunctionComponent<{
   name: string;
   password: string;
   app: App | "Ethereum";
-  authKeyId: string;
-  authKeyPassword: string;
+  authKeyIdView: string;
+  authKeyIdSign: string;
+  authKeyViewPassword: string;
   objectId: string;
   bip44Path: {
     account: number;
@@ -57,8 +58,9 @@ export const ConnectLedgerScene: FunctionComponent<{
     name,
     password,
     app: propApp,
-    authKeyId,
-    authKeyPassword,
+    authKeyIdView,
+    authKeyIdSign,
+    authKeyViewPassword,
     objectId,
     bip44Path,
     appendModeInfo,
@@ -106,17 +108,20 @@ export const ConnectLedgerScene: FunctionComponent<{
       let key;
 
       try {
-        const authKeyIdNum = Number(authKeyId);
+        const authKeyIdViewNum = Number(authKeyIdView);
         const objectIdNum = Number(objectId);
 
-        if (!Number.isInteger(authKeyIdNum) || !Number.isInteger(objectIdNum)) {
-          throw new Error("authKeyId and objectId must be integers");
+        if (
+          !Number.isInteger(authKeyIdViewNum) ||
+          !Number.isInteger(objectIdNum)
+        ) {
+          throw new Error("authKeyIdView and objectId must be integers");
         }
 
         const response = (await sendNativeMessage("yubihsm_native_host", {
           method: "getAsymmetricKey",
-          auth_key_id: authKeyIdNum,
-          password: authKeyPassword,
+          auth_key_id: authKeyIdViewNum,
+          password: authKeyViewPassword,
           object_id: objectIdNum,
         })) as NativeResponse;
 
@@ -124,9 +129,7 @@ export const ConnectLedgerScene: FunctionComponent<{
           throw new Error(response.payload || response.error);
         }
 
-        if (response.payload.length !== 0) {
-          key = response.payload[0];
-        }
+        key = response.payload[0];
 
         setStep("connected");
       } catch (e) {
@@ -139,7 +142,7 @@ export const ConnectLedgerScene: FunctionComponent<{
       const app = new YubiApp(
         propApp,
         key.public_key,
-        Number(authKeyId),
+        Number(authKeyIdSign),
         Number(objectId)
       );
 
@@ -151,7 +154,7 @@ export const ConnectLedgerScene: FunctionComponent<{
           await keyRingStore.appendLedgerKeyApp(
             appendModeInfo.vaultId,
             res.compressed_pk,
-            Number(authKeyId),
+            Number(authKeyIdSign),
             Number(objectId),
             propApp
           );
@@ -168,7 +171,7 @@ export const ConnectLedgerScene: FunctionComponent<{
             ledger: {
               pubKey: res.compressed_pk,
               app: propApp,
-              authKeyId: Number(authKeyId),
+              authKeyId: Number(authKeyIdSign),
               objectId: Number(objectId),
               bip44Path,
             },

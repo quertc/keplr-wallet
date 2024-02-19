@@ -1,15 +1,16 @@
 import React, { FunctionComponent, useState } from "react";
 import { RegisterSceneBox } from "../components/register-scene-box";
-import { Box } from "../../../components/box";
 import { FormNamePassword, useFormNamePassword } from "../components/form";
 import { useRegisterHeader } from "../components/header";
 import {
   useSceneEvents,
   useSceneTransition,
 } from "../../../components/transition";
-import { SetBip44PathCard, useBIP44PathState } from "../components/bip-44-path";
-import { VerticalCollapseTransition } from "../../../components/transition/vertical-collapse";
-import { Button } from "../../../components/button";
+import { Columns } from "../../../components/column";
+import { Subtitle3 } from "../../../components/typography";
+import { Toggle } from "../../../components/toggle";
+import { ColorPalette } from "../../../styles";
+import { useBIP44PathState } from "../components/bip-44-path";
 import { Gutter } from "../../../components/gutter";
 import { observer } from "mobx-react-lite";
 import { useIntl } from "react-intl";
@@ -39,12 +40,37 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   const form = useFormNamePassword();
 
   const [connectTo, setConnectTo] = useState<string>("Cosmos");
-  const [authKeyId, setAuthKeyId] = useState<string>("");
-  const [authKeyPassword, setAuthKeyPassword] = useState<string>("");
+  const [authKeyIdView, setAuthKeyIdView] = useState<string>("");
+  const [authKeyIdSign, setAuthKeyIdSign] = useState<string>("");
+  const [authKeyViewPassword, setAuthKeyViewPassword] = useState<string>("");
   const [objectId, setObjectId] = useState<string>("");
+  const [isSameAuthKey, setIsSameAuthKey] = useState<boolean>(true);
+
+  const handleToggleChange = (isOpen: boolean) => {
+    setIsSameAuthKey(isOpen);
+    if (isOpen) {
+      setAuthKeyIdSign(authKeyIdView);
+    }
+  };
+
+  const handleAuthKeyIdViewChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setAuthKeyIdView(e.target.value);
+    if (isSameAuthKey) {
+      setAuthKeyIdSign(e.target.value);
+    }
+  };
+
+  const handleAuthKeyIdSignChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!isSameAuthKey) {
+      setAuthKeyIdSign(e.target.value);
+    }
+  };
 
   const bip44PathState = useBIP44PathState();
-  const [isBIP44CardOpen, setIsBIP44CardOpen] = useState(false);
 
   return (
     <RegisterSceneBox>
@@ -55,8 +81,9 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
               name: data.name,
               password: data.password,
               app: connectTo,
-              authKeyId,
-              authKeyPassword,
+              authKeyIdView,
+              authKeyIdSign,
+              authKeyViewPassword,
               objectId,
               bip44Path: bip44PathState.getPath(),
               stepPrevious: 1,
@@ -113,50 +140,52 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
               />
               <Gutter size="1rem" />
               <TextInput
-                label="Auth Key ID"
-                value={authKeyId}
-                onChange={(e) => setAuthKeyId(e.target.value)}
+                label="Auth Key ID for view accounts"
+                value={authKeyIdView}
+                onChange={handleAuthKeyIdViewChange}
               />
               <Gutter size="1rem" />
               <TextInput
-                label="Password for this Auth Key"
+                label="Password for this View Auth Key"
                 type="password"
-                value={authKeyPassword}
-                onChange={(e) => setAuthKeyPassword(e.target.value)}
+                value={authKeyViewPassword}
+                onChange={(e) => setAuthKeyViewPassword(e.target.value)}
               />
               <Gutter size="1rem" />
+              {isSameAuthKey ? null : (
+                <React.Fragment>
+                  <TextInput
+                    label="Auth Key ID for sign (w/o password)"
+                    value={authKeyIdSign}
+                    onChange={handleAuthKeyIdSignChange}
+                  />
+                  <Gutter size="1rem" />
+                </React.Fragment>
+              )}
               <TextInput
                 label="Object ID"
                 value={objectId}
                 onChange={(e) => setObjectId(e.target.value)}
               />
-              <Gutter size="1.625rem" />
-              <VerticalCollapseTransition
-                width="100%"
-                collapsed={isBIP44CardOpen}
+              <Gutter size="1rem" />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                }}
               >
-                <Box alignX="center">
-                  <Button
-                    size="small"
-                    color="secondary"
-                    text={intl.formatMessage({
-                      id: "button.advanced",
-                    })}
-                    onClick={() => {
-                      setIsBIP44CardOpen(true);
-                    }}
+                <Columns sum={1} gutter="0.5rem" alignY="center">
+                  <Subtitle3 color={ColorPalette["gray-200"]}>
+                    Same auth key for sign
+                  </Subtitle3>
+                  <Toggle
+                    isOpen={isSameAuthKey}
+                    setIsOpen={handleToggleChange}
                   />
-                </Box>
-              </VerticalCollapseTransition>
-              <VerticalCollapseTransition collapsed={!isBIP44CardOpen}>
-                <SetBip44PathCard
-                  state={bip44PathState}
-                  onClose={() => {
-                    setIsBIP44CardOpen(false);
-                  }}
-                />
-              </VerticalCollapseTransition>
-              <Gutter size="1.25rem" />
+                </Columns>
+              </div>
+              <Gutter size="1.625rem" />
             </React.Fragment>
           ) : undefined}
         </FormNamePassword>
