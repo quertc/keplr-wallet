@@ -14,8 +14,7 @@ import { useBIP44PathState } from "../components/bip-44-path";
 import { Gutter } from "../../../components/gutter";
 import { observer } from "mobx-react-lite";
 import { useIntl } from "react-intl";
-import { Dropdown } from "../../../components/dropdown";
-import { Label, TextInput } from "../../../components/input";
+import { TextInput } from "../../../components/input";
 
 export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   type: string;
@@ -39,7 +38,7 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
 
   const form = useFormNamePassword();
 
-  const [connectTo, setConnectTo] = useState<string>("Cosmos");
+  const connectTo = "Cosmos";
   const [authKeyIdView, setAuthKeyIdView] = useState<string>("");
   const [authKeyIdSign, setAuthKeyIdSign] = useState<string>("");
   const [authKeyViewPassword, setAuthKeyViewPassword] = useState<string>("");
@@ -102,40 +101,6 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
         <FormNamePassword {...form} autoFocus={true}>
           {type === "ledger" ? (
             <React.Fragment>
-              <Gutter size="1rem" />
-              <Label
-                content={intl.formatMessage({
-                  id: "pages.register.name-password-hardware.connect-to",
-                })}
-              />
-              <Dropdown
-                color="text-input"
-                size="large"
-                selectedItemKey={connectTo}
-                items={[
-                  {
-                    key: "Cosmos",
-                    label: intl.formatMessage({
-                      id: "pages.register.name-password-hardware.connect-to-cosmos",
-                    }),
-                  },
-                  {
-                    key: "Terra",
-                    label: intl.formatMessage({
-                      id: "pages.register.name-password-hardware.connect-to-terra",
-                    }),
-                  },
-                  {
-                    key: "Secret",
-                    label: intl.formatMessage({
-                      id: "pages.register.name-password-hardware.connect-to-secret",
-                    }),
-                  },
-                ]}
-                onSelect={(key) => {
-                  setConnectTo(key);
-                }}
-              />
               <Gutter size="1rem" />
               <TextInput
                 label="Auth Key ID for view accounts"

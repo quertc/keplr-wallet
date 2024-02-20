@@ -28,7 +28,7 @@ import { Column, Columns } from "../../../components/column";
 import { Checkbox } from "../../../components/checkbox";
 import SimpleBar from "simplebar-react";
 
-type Step = "unknown" | "connected" | "app";
+type Step = "unknown" | "connected";
 
 interface NativeResponse {
   status: "ok" | "panic";
@@ -185,59 +185,57 @@ export const ConnectLedgerScene: FunctionComponent<{
 
         key = response.payload[0];
 
-        setStep("connected");
+        const app = new YubiApp(
+          propApp,
+          key.public_key,
+          Number(authKeyIdSign),
+          Number(selectedKeyId)
+        );
+
+        const res = app.getPublicKey();
+
+        if (res.error_message === "No errors") {
+          setStep("connected");
+
+          if (appendModeInfo) {
+            await keyRingStore.appendLedgerKeyApp(
+              appendModeInfo.vaultId,
+              res.compressed_pk,
+              Number(authKeyIdSign),
+              Number(selectedKeyId),
+              propApp
+            );
+            await chainStore.enableChainInfoInUI(
+              ...appendModeInfo.afterEnableChains
+            );
+            navigate("/welcome", {
+              replace: true,
+            });
+          } else {
+            sceneTransition.replaceAll("finalize-key", {
+              name,
+              password,
+              ledger: {
+                pubKey: res.compressed_pk,
+                app: propApp,
+                authKeyId: Number(authKeyIdSign),
+                objectId: Number(selectedKeyId),
+                bip44Path,
+              },
+              stepPrevious: stepPrevious + 1,
+              stepTotal: stepTotal,
+            });
+          }
+        } else {
+          setStep("unknown");
+        }
+
+        setIsLoading(false);
       } catch (e) {
         console.log(e);
         setStep("unknown");
         setIsLoading(false);
-        return;
       }
-
-      const app = new YubiApp(
-        propApp,
-        key.public_key,
-        Number(authKeyIdSign),
-        Number(selectedKeyId)
-      );
-
-      const res = app.getPublicKey();
-      if (res.error_message === "No errors") {
-        setStep("app");
-
-        if (appendModeInfo) {
-          await keyRingStore.appendLedgerKeyApp(
-            appendModeInfo.vaultId,
-            res.compressed_pk,
-            Number(authKeyIdSign),
-            Number(selectedKeyId),
-            propApp
-          );
-          await chainStore.enableChainInfoInUI(
-            ...appendModeInfo.afterEnableChains
-          );
-          navigate("/welcome", {
-            replace: true,
-          });
-        } else {
-          sceneTransition.replaceAll("finalize-key", {
-            name,
-            password,
-            ledger: {
-              pubKey: res.compressed_pk,
-              app: propApp,
-              authKeyId: Number(authKeyIdSign),
-              objectId: Number(selectedKeyId),
-              bip44Path,
-            },
-            stepPrevious: stepPrevious + 1,
-            stepTotal: stepTotal,
-          });
-        }
-      } else {
-        setStep("connected");
-      }
-
-      setIsLoading(false);
     };
 
     return (
@@ -252,32 +250,36 @@ export const ConnectLedgerScene: FunctionComponent<{
             textAlign: "center",
           }}
         >
-          Choose a key
+          Choose a key {keys.length === 0 ? "(no keys)" : `(${keys.length})`}
         </Subtitle3>
-        <Gutter size="0.75rem" />
-        <SimpleBar
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            overflowY: "auto",
-            maxHeight: "25.5rem",
-          }}
-        >
-          <Stack gutter="0.5rem">
-            {keys.map((key) => {
-              const enabled = selectedKeyId === `${key.object_id}`;
-              return (
-                <KeyItem
-                  key={key.object_id}
-                  keyId={key.object_id}
-                  keyType={key.object_type}
-                  enabled={enabled}
-                  onClick={() => toggleKeySelection(`${key.object_id}`)}
-                />
-              );
-            })}
-          </Stack>
-        </SimpleBar>
+        {keys.length > 0 ? (
+          <React.Fragment>
+            <Gutter size="0.75rem" />
+            <SimpleBar
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                overflowY: "auto",
+                maxHeight: "25.5rem",
+              }}
+            >
+              <Stack gutter="0.5rem">
+                {keys.map((key) => {
+                  const enabled = selectedKeyId === `${key.object_id}`;
+                  return (
+                    <KeyItem
+                      key={key.object_id}
+                      keyId={key.object_id}
+                      keyType={key.object_type}
+                      enabled={enabled}
+                      onClick={() => toggleKeySelection(`${key.object_id}`)}
+                    />
+                  );
+                })}
+              </Stack>
+            </SimpleBar>
+          </React.Fragment>
+        ) : null}
         <Gutter size="1.65rem" />
         <Stack gutter="1.25rem">
           <StepView
@@ -291,35 +293,10 @@ export const ConnectLedgerScene: FunctionComponent<{
               </Box>
             }
             focused={step === "unknown"}
-            completed={step !== "unknown"}
-          />
-          <StepView
-            step={2}
-            paragraph={intl.formatMessage(
-              { id: "pages.register.connect-ledger.open-app-step-paragraph" },
-              { app: propApp }
-            )}
-            icon={
-              <Box style={{ opacity: step !== "connected" ? 0.5 : 1 }}>
-                {(() => {
-                  switch (propApp) {
-                    case "Terra":
-                      return <TerraIcon />;
-                    case "Ethereum":
-                      return <EthereumIcon />;
-                    case "Secret":
-                      return <SecretIcon />;
-                    default:
-                      return <CosmosIcon />;
-                  }
-                })()}
-              </Box>
-            }
-            focused={step === "connected"}
-            completed={step === "app"}
+            completed={step === "connected"}
           />
         </Stack>
-        <Gutter size="1.25rem" />
+        <Gutter size="1.65rem" />
         <Box width="22.5rem" marginX="auto">
           <Button
             text={intl.formatMessage({
@@ -585,107 +562,6 @@ const LedgerIcon: FunctionComponent = () => {
           <stop offset="1" stopColor="#BACEDE" />
         </linearGradient>
       </defs>
-    </svg>
-  );
-};
-
-const CosmosIcon: FunctionComponent = () => {
-  return (
-    <svg
-      width="80"
-      height="81"
-      viewBox="0 0 80 81"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="8.5" y="9" width="62" height="62" rx="15.6962" fill="#424247" />
-      <circle
-        cx="39.8219"
-        cy="40.321"
-        r="12.1578"
-        stroke="#F6F6F9"
-        strokeWidth="4.04115"
-      />
-      <path
-        d="M54.0003 25.498L24.999 54.4993"
-        stroke="#F6F6F9"
-        strokeWidth="4.04115"
-      />
-    </svg>
-  );
-};
-
-const EthereumIcon: FunctionComponent = () => {
-  return (
-    <svg
-      width="80"
-      height="80"
-      viewBox="0 0 80 80"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="9" y="9" width="62" height="62" rx="15.6962" fill="#424247" />
-      <path
-        d="M39.879 34.5138V20L27.849 39.9635L39.879 34.5138Z"
-        fill="#F6F6F9"
-      />
-      <path
-        d="M39.879 47.2864L27.849 39.9646L39.879 34.5149V47.2864Z"
-        fill="#F6F6F9"
-      />
-      <path
-        d="M27.7705 42.8664L39.8591 59.8968V50.0083L27.7705 42.8664Z"
-        fill="#F6F6F9"
-      />
-      <path
-        d="M39.7849 34.5404V20L51.7849 40L39.7849 34.5404Z"
-        fill="#ABABB5"
-      />
-      <path
-        d="M39.7739 47.2417L51.7854 39.9305L39.7739 34.4888V47.2417Z"
-        fill="#ABABB5"
-      />
-      <path
-        d="M51.7848 42.8383L39.6992 59.8545V49.9743L51.7848 42.8383Z"
-        fill="#ABABB5"
-      />
-    </svg>
-  );
-};
-
-const TerraIcon: FunctionComponent = () => {
-  return (
-    <svg
-      width="80"
-      height="81"
-      viewBox="0 0 80 81"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="8.5" y="9" width="62" height="62" rx="15.6962" fill="#424247" />
-      <path
-        xmlns="http://www.w3.org/2000/svg"
-        d="M30.9452 43.907C30.6265 43.3646 29.047 40.8402 27.8945 39.2868C26.7421 37.7333 25.271 36.1999 24.044 34.5995C23.9829 34.7669 23.9219 34.9343 23.8677 35.1017C23.5808 35.9441 23.3653 36.8087 23.2237 37.6864C22.9254 39.4936 22.9254 41.3365 23.2237 43.1437C23.3764 44.0224 23.6031 44.8869 23.9016 45.7283C24.1719 46.5436 24.5027 47.3381 24.8913 48.1054C25.2871 48.8721 25.7403 49.6085 26.2472 50.3084C26.7665 51.0015 27.3351 51.6571 27.9488 52.2703C29.0238 53.3331 30.2392 54.2476 31.5621 54.9889C32.6332 55.5849 32.9993 55.5648 33.1823 55.5514C33.3857 55.2233 33.5416 51.286 33.3924 50.295C33.0338 48.0211 32.2004 45.8458 30.9452 43.907ZM51.2149 27.7495C51.1437 27.6916 51.0689 27.6379 50.9912 27.5888C48.6781 25.7258 45.8875 24.5323 42.9293 24.1411C39.971 23.7498 36.9609 24.1761 34.2331 25.3724C34.0704 25.3724 33.8805 25.3724 33.6772 25.3323C32.8536 25.3485 32.0463 25.5622 31.3248 25.955C30.857 26.2295 30.4096 26.5241 29.969 26.8389C29.2617 27.3474 28.5953 27.9094 27.9759 28.5196C27.3622 29.1328 26.7936 29.7884 26.2743 30.4815C25.7572 31.187 25.2949 31.9302 24.8913 32.7046L24.749 32.9858C25.4269 33.1867 27.9216 32.5706 30.3825 31.4323C30.9457 32.4115 31.7532 33.2321 32.7281 33.8161C32.28 34.5861 32.0968 35.479 32.2061 36.3606C32.7145 40.184 38.3074 42.6214 40.1852 43.4249L40.3411 43.4785C39.404 44.0888 38.5807 44.8545 37.9074 45.7417C37.4603 46.3162 37.1542 46.9852 37.0131 47.6963C36.8719 48.4073 36.8996 49.141 37.0939 49.8397C38.043 53.2546 41.4054 56.1406 43.5002 56.1406H43.6358C44.3963 55.9854 45.1406 55.7613 45.8594 55.471C46.5352 55.6748 47.265 55.6099 47.8931 55.2902C50.8061 53.7904 53.2224 51.4967 54.8554 48.6813C54.9367 48.534 54.8554 48.4067 54.6655 48.4201C54.5239 48.4383 54.3835 48.4651 54.2452 48.5005C54.5031 48.0174 54.7295 47.5187 54.9231 47.0073C55.2692 46.964 55.5934 46.8167 55.8519 46.5854C57.1347 43.356 57.3778 39.8143 56.5479 36.4435C55.7181 33.0726 53.8558 30.0366 51.2149 27.7495ZM33.345 32.9121C32.5299 32.4314 31.8494 31.7569 31.3655 30.9502C32.8635 30.2528 34.1753 29.2186 35.1957 27.9303C35.1957 27.9303 35.9346 26.7987 35.5008 26.0353C37.1962 25.3992 38.9952 25.0746 40.8089 25.0778C43.3073 25.0822 45.7653 25.7013 47.9609 26.879H47.7508C43.9002 26.9862 36.2533 29.3164 33.345 32.9121ZM53.0046 48.4134C52.8894 48.6076 52.7606 48.7951 52.6386 48.9826C49.9269 49.9535 45.8051 52.036 45.1815 54.0849C45.1297 54.2517 45.109 54.4264 45.1204 54.6005C44.5949 54.7868 44.0584 54.9411 43.5138 55.0626H43.4663C42.1105 55.0626 39.026 52.8194 38.1311 49.5584C37.9832 49.0108 37.9676 48.4365 38.0853 47.8818C38.203 47.327 38.4509 46.8073 38.809 46.3644C39.5732 45.3855 40.5244 44.5643 41.6088 43.9472C44.3205 44.9382 50.3472 46.9805 53.7029 47.0876C53.5016 47.5426 53.273 47.9854 53.0182 48.4134H53.0046Z"
-        fill="#F6F6F9"
-      />
-    </svg>
-  );
-};
-
-const SecretIcon: FunctionComponent = () => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="80"
-      height="80"
-      fill="none"
-      viewBox="0 0 80 80"
-    >
-      <rect width="62" height="62" x="9" y="9" fill="#424247" rx="15.696" />
-      <path
-        fill="#fff"
-        d="M51.367 41.368c-2.315-2.095-5.345-3.494-8.281-4.85l-.022-.007c-5.178-2.395-9.655-4.468-9.337-9.369.138-1.868 1.476-2.996 2.575-3.604 1.237-.688 2.878-1.099 4.397-1.099.18 0 .362.008.535.015 4.419.3 7.905 2.198 11.311 6.139l.203.241.239-.205 1.33-1.172.239-.212-.21-.242c-3.797-4.41-7.92-6.63-12.96-6.974a6.993 6.993 0 00-.701-.029c-.152 0-.319 0-.492.007h-.217c-3.305 0-6.929 1.1-9.684 2.945-3.29 2.205-5.135 5.238-5.186 8.541-.13 8.036 6.357 10.74 12.078 13.135l.015.007.058.022c5.062 2.125 9.43 3.956 9.336 8.864-.043 3.238-4.614 5.025-7.753 5.025h-.44v.007c-4.68-.139-8.86-2.183-12.426-6.058l-.217-.234-.231.212-1.295 1.216-.231.22.217.234c4.05 4.418 9.047 6.791 14.457 6.857h.246c3.493 0 7.29-.952 10.154-2.557 3.587-1.985 5.677-4.878 5.894-8.145.246-3.59-.933-6.513-3.601-8.93zM34.573 34.38c2.062 1.787 4.853 3.07 7.55 4.307l.051.022c2.857 1.333 5.562 2.593 7.522 4.344 2.17 1.934 3.088 4.175 2.893 7.054-.181 2.85-2.271 4.754-4.173 5.904.369-.762.571-1.59.593-2.468.043-2.96-1.078-5.326-3.435-7.245-2.061-1.678-4.795-2.813-7.442-3.919-5.504-2.293-10.704-4.461-10.61-10.864.029-2.46 1.49-4.79 4.115-6.556.087-.058.174-.117.268-.176a6.039 6.039 0 00-.528 2.161c-.21 2.967.839 5.4 3.196 7.436z"
-      />
     </svg>
   );
 };

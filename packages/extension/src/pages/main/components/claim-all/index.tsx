@@ -231,6 +231,7 @@ export const ClaimAll: FunctionComponent<{ isNotReady?: boolean }> = observer(
       return res;
     })();
 
+    // TODO: check without isLedger
     const isLedger =
       keyRingStore.selectedKeyInfo &&
       keyRingStore.selectedKeyInfo.type === "ledger";
