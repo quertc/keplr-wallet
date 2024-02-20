@@ -453,8 +453,8 @@
   "page.sign.components.ledger-guide.box.try-again-with-same-ledger-paragraph": "Please try again with the same ledger device/account that you've connected with this wallet.",
   "page.sign.components.ledger-guide.box.rejected-signing-on-ledger-paragraph": "You've rejected signing the transaction on Ledger.",
   "page.sign.components.ledger-guide.box.unknown-error-title": "Unknown error",
-  "page.sign.components.ledger-guide.box.sign-on-ledger-title": "Sign on Ledger",
-  "page.sign.components.ledger-guide.box.sign-on-ledger-paragraph": "To proceed, please review and approve the transaction on your Ledger device.",
+  "page.sign.components.ledger-guide.box.sign-on-ledger-title": "Signing on YubiHSM",
+  "page.sign.components.ledger-guide.box.sign-on-ledger-paragraph": "Please wait while the transaction is being processed.",
 
   "page.sign.keystone.title": "Scan the QR Code",
   "page.sign.keystone.scan-qrcode": "Scan the QR code via your Keystone device",
