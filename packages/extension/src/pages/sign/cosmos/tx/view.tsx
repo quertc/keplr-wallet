@@ -582,6 +582,7 @@ export const CosmosTxView: FunctionComponent<{
                       "authKeyId"
                     ]
                   }`}
+                  type="password"
                   value={authKeyPassword}
                   onChange={(e) => setAuthKeyPassword(e.target.value)}
                 />
