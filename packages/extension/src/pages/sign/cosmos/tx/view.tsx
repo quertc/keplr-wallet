@@ -313,9 +313,6 @@ export const CosmosTxView: FunctionComponent<{
     unmountPromise.resolver();
   });
 
-  const isLedgerAndDirect =
-    interactionData.data.keyType === "ledger" &&
-    interactionData.data.mode === "direct";
   const isLedger = interactionData.data.keyType === "ledger";
 
   const [isLedgerInteracting, setIsLedgerInteracting] = useState(false);
@@ -333,7 +330,6 @@ export const CosmosTxView: FunctionComponent<{
   const buttonDisabled =
     txConfigsValidate.interactionBlocked ||
     !signDocHelper.signDocWrapper ||
-    isLedgerAndDirect ||
     (isSendAuthzGrant && !isSendAuthzGrantChecked);
 
   const approve = async () => {
@@ -457,12 +453,7 @@ export const CosmosTxView: FunctionComponent<{
           overflow: "auto",
         }}
       >
-        <Box
-          marginBottom="0.5rem"
-          style={{
-            opacity: isLedgerAndDirect ? 0.5 : undefined,
-          }}
-        >
+        <Box marginBottom="0.5rem">
           <Columns sum={1} alignY="center">
             <XAxis>
               <H5
@@ -499,7 +490,6 @@ export const CosmosTxView: FunctionComponent<{
             flexDirection: "column",
             flex: !isViewData ? "0 1 auto" : 1,
             overflow: "auto",
-            opacity: isLedgerAndDirect ? 0.5 : undefined,
             borderRadius: "0.375rem",
             backgroundColor:
               theme.mode === "light"
@@ -562,11 +552,7 @@ export const CosmosTxView: FunctionComponent<{
         {!isViewData ? <div style={{ flex: 1 }} /> : null}
         <Box height="0" minHeight="1rem" />
 
-        <Box
-          style={{
-            opacity: isLedgerAndDirect ? 0.5 : undefined,
-          }}
-        >
+        <Box>
           <Stack gutter="0.75rem">
             {preferNoSetMemo ? (
               <ReadonlyMemo memo={memoConfig.memo} />
@@ -616,21 +602,6 @@ export const CosmosTxView: FunctionComponent<{
                   />
                 </Box>
               }
-            />
-          </React.Fragment>
-        ) : null}
-
-        {isLedgerAndDirect ? (
-          <React.Fragment>
-            <Gutter size="0.75rem" />
-            <GuideBox
-              color="warning"
-              title={intl.formatMessage({
-                id: "page.sign.cosmos.tx.warning-title",
-              })}
-              paragraph={intl.formatMessage({
-                id: "page.sign.cosmos.tx.warning-paragraph",
-              })}
             />
           </React.Fragment>
         ) : null}
