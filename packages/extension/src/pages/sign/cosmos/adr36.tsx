@@ -8,6 +8,7 @@ import { checkAndValidateADR36AminoSignDoc } from "@keplr-wallet/cosmos";
 import { Box } from "../../../components/box";
 import { XAxis, YAxis } from "../../../components/axis";
 import { Gutter } from "../../../components/gutter";
+import { TextInput } from "../../../components/input";
 import { Body2, Body3, H5, Subtitle3 } from "../../../components/typography";
 import { ColorPalette } from "../../../styles";
 import { ViewDataButton } from "../components/view-data-button";
@@ -15,7 +16,6 @@ import { handleCosmosPreSign } from "../utils/handle-cosmos-sign";
 import { KeplrError } from "@keplr-wallet/router";
 import { ErrModuleLedgerSign } from "../utils/ledger-types";
 import { LedgerGuideBox } from "../components/ledger-guide-box";
-import { GuideBox } from "../../../components/guide-box";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Image } from "../../../components/image";
 import { ErrModuleKeystoneSign, KeystoneUR } from "../utils/keystone";
@@ -29,6 +29,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
   const theme = useTheme();
 
   const [isViewData, setIsViewData] = useState(false);
+  const [authKeyPassword, setAuthKeyPassword] = useState("");
 
   const interactionInfo = useInteractionInfo(() => {
     signInteractionStore.rejectAll();
@@ -97,9 +98,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
     }
   }, [isADR36WithString, signDocWrapper]);
 
-  const isLedgerAndDirect =
-    signInteractionStore.waitingData?.data.keyType === "ledger" &&
-    signInteractionStore.waitingData?.data.mode === "direct";
+  const isLedger = signInteractionStore.waitingData?.data.keyType === "ledger";
 
   const [isLedgerInteracting, setIsLedgerInteracting] = useState(false);
   const [ledgerInteractingError, setLedgerInteractingError] = useState<
@@ -182,7 +181,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
               const signature = await handleCosmosPreSign(
                 signInteractionStore.waitingData,
                 signDocWrapper,
-                "",
+                authKeyPassword,
                 presignOptions
               );
 
@@ -341,6 +340,26 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
           </pre>
         </Box>
 
+        {isLedger ? (
+          <React.Fragment>
+            <Gutter size="0.75rem" />
+            <Box>
+              <TextInput
+                label={`Password for Auth Key Id #${
+                  (
+                    signInteractionStore.waitingData?.data.keyInsensitive[
+                      "Cosmos"
+                    ] as any
+                  )["authKeyId"]
+                }`}
+                type="password"
+                value={authKeyPassword}
+                onChange={(e) => setAuthKeyPassword(e.target.value)}
+              />
+            </Box>
+          </React.Fragment>
+        ) : null}
+
         <div style={{ flex: 1 }} />
         <Box
           padding="1rem"
@@ -383,21 +402,6 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
             </Subtitle3>
           </XAxis>
         </Box>
-
-        {isLedgerAndDirect ? (
-          <React.Fragment>
-            <Gutter size="0.75rem" />
-            <GuideBox
-              color="warning"
-              title={intl.formatMessage({
-                id: "page.sign.adr36.warning-title",
-              })}
-              paragraph={intl.formatMessage({
-                id: "page.sign.adr36.warning-paragraph",
-              })}
-            />
-          </React.Fragment>
-        ) : null}
 
         {signInteractionStore.waitingData ? (
           <LedgerGuideBox
