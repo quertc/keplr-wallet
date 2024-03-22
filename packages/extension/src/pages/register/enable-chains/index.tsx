@@ -324,6 +324,15 @@ export const EnableChainsScene: FunctionComponent<{
             continue;
           }
 
+          // Enable celestia & osmosis chain by default
+          if (
+            chainInfo.chainId === "celestia" ||
+            chainInfo.chainId === "osmosis-1"
+          ) {
+            enabledChainIdentifiers.push(chainInfo.chainIdentifier);
+            continue;
+          }
+
           // If the chain is not enabled, check that the account exists.
           // If the account exists, turn on the chain.
           for (const bech32Address of candidateAddress.bech32Addresses) {
@@ -541,6 +550,147 @@ export const EnableChainsScene: FunctionComponent<{
     const [preSelectedChainIdentifiers, setPreSelectedChainIdentifiers] =
       useState<string[]>([]);
 
+    const save = async () => {
+      const enables: string[] = [];
+      const disables: string[] = [];
+
+      for (const chainInfo of chainStore.chainInfos) {
+        const enabled =
+          enabledChainIdentifierMap.get(chainInfo.chainIdentifier) || false;
+
+        if (enabled) {
+          enables.push(chainInfo.chainIdentifier);
+        } else {
+          disables.push(chainInfo.chainIdentifier);
+        }
+      }
+
+      const needFinalizeCoinType: string[] = [];
+      for (let i = 0; i < enables.length; i++) {
+        const enable = enables[i];
+        const chainInfo = chainStore.getChain(enable);
+        if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
+          // Remove enable from enables
+          enables.splice(i, 1);
+          i--;
+          // And push it disables
+          disables.push(enable);
+
+          needFinalizeCoinType.push(enable);
+        }
+      }
+
+      const ledgerEthereumAppNeeds: string[] = [];
+      for (let i = 0; i < enables.length; i++) {
+        if (!fallbackEthereumLedgerApp) {
+          break;
+        }
+
+        const enable = enables[i];
+
+        const chainInfo = chainStore.getChain(enable);
+        const isEthermintLike =
+          chainInfo.bip44.coinType === 60 ||
+          !!chainInfo.features?.includes("eth-address-gen") ||
+          !!chainInfo.features?.includes("eth-key-sign");
+
+        if (isEthermintLike) {
+          // 참고로 위에서 chainInfos memo로 인해서 막혀있기 때문에
+          // 여기서 throwErrorIfEthermintWithLedgerButNotSupported 확인은 생략한다.
+          // Remove enable from enables
+          enables.splice(i, 1);
+          i--;
+          // And push it disables
+          disables.push(enable);
+
+          ledgerEthereumAppNeeds.push(enable);
+        }
+      }
+
+      await Promise.all([
+        (async () => {
+          if (enables.length > 0) {
+            await chainStore.enableChainInfoInUIWithVaultId(
+              vaultId,
+              ...enables
+            );
+          }
+        })(),
+        (async () => {
+          if (disables.length > 0) {
+            await chainStore.disableChainInfoInUIWithVaultId(
+              vaultId,
+              ...disables
+            );
+          }
+        })(),
+      ]);
+
+      if (needFinalizeCoinType.length > 0) {
+        sceneMovedToSelectDerivation.current = true;
+        sceneTransition.replace("select-derivation-path", {
+          vaultId,
+          chainIds: needFinalizeCoinType,
+
+          totalCount: needFinalizeCoinType.length,
+
+          skipWelcome,
+        });
+      } else {
+        // 어차피 bip44 coin type selection과 ethereum ledger app이 동시에 필요한 경우는 없다.
+        // (ledger에서는 coin type이 app당 할당되기 때문에...)
+        if (keyType === "ledger") {
+          if (!fallbackEthereumLedgerApp) {
+            sceneTransition.push("enable-chains", {
+              vaultId,
+              keyType,
+              candidateAddresses: [],
+              isFresh: false,
+              skipWelcome,
+              fallbackEthereumLedgerApp: true,
+              stepPrevious: stepPrevious,
+              stepTotal: stepTotal,
+            });
+          } else if (ledgerEthereumAppNeeds.length > 0) {
+            const keyInfo = keyRingStore.keyInfos.find(
+              (keyInfo) => keyInfo.id === vaultId
+            );
+            if (!keyInfo) {
+              throw new Error("KeyInfo not found");
+            }
+            if (keyInfo.insensitive["Ethereum"]) {
+              await chainStore.enableChainInfoInUI(...ledgerEthereumAppNeeds);
+              replaceToWelcomePage();
+            } else {
+              const bip44Path = keyInfo.insensitive["bip44Path"];
+              if (!bip44Path) {
+                throw new Error("bip44Path not found");
+              }
+              sceneTransition.replaceAll("connect-ledger", {
+                name: "",
+                password: "",
+                app: "Ethereum",
+                bip44Path,
+
+                appendModeInfo: {
+                  vaultId,
+                  afterEnableChains: ledgerEthereumAppNeeds,
+                },
+                stepPrevious: stepPrevious,
+                stepTotal: stepTotal,
+              });
+            }
+          } else {
+            replaceToWelcomePage();
+          }
+        } else {
+          replaceToWelcomePage();
+        }
+      }
+    };
+
+    save();
+
     return (
       <RegisterSceneBox>
         <SearchTextInput
@@ -748,147 +898,7 @@ export const EnableChainsScene: FunctionComponent<{
               id: "button.save",
             })}
             size="large"
-            onClick={async () => {
-              const enables: string[] = [];
-              const disables: string[] = [];
-
-              for (const chainInfo of chainStore.chainInfos) {
-                const enabled =
-                  enabledChainIdentifierMap.get(chainInfo.chainIdentifier) ||
-                  false;
-
-                if (enabled) {
-                  enables.push(chainInfo.chainIdentifier);
-                } else {
-                  disables.push(chainInfo.chainIdentifier);
-                }
-              }
-
-              const needFinalizeCoinType: string[] = [];
-              for (let i = 0; i < enables.length; i++) {
-                const enable = enables[i];
-                const chainInfo = chainStore.getChain(enable);
-                if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
-                  // Remove enable from enables
-                  enables.splice(i, 1);
-                  i--;
-                  // And push it disables
-                  disables.push(enable);
-
-                  needFinalizeCoinType.push(enable);
-                }
-              }
-
-              const ledgerEthereumAppNeeds: string[] = [];
-              for (let i = 0; i < enables.length; i++) {
-                if (!fallbackEthereumLedgerApp) {
-                  break;
-                }
-
-                const enable = enables[i];
-
-                const chainInfo = chainStore.getChain(enable);
-                const isEthermintLike =
-                  chainInfo.bip44.coinType === 60 ||
-                  !!chainInfo.features?.includes("eth-address-gen") ||
-                  !!chainInfo.features?.includes("eth-key-sign");
-
-                if (isEthermintLike) {
-                  // 참고로 위에서 chainInfos memo로 인해서 막혀있기 때문에
-                  // 여기서 throwErrorIfEthermintWithLedgerButNotSupported 확인은 생략한다.
-                  // Remove enable from enables
-                  enables.splice(i, 1);
-                  i--;
-                  // And push it disables
-                  disables.push(enable);
-
-                  ledgerEthereumAppNeeds.push(enable);
-                }
-              }
-
-              await Promise.all([
-                (async () => {
-                  if (enables.length > 0) {
-                    await chainStore.enableChainInfoInUIWithVaultId(
-                      vaultId,
-                      ...enables
-                    );
-                  }
-                })(),
-                (async () => {
-                  if (disables.length > 0) {
-                    await chainStore.disableChainInfoInUIWithVaultId(
-                      vaultId,
-                      ...disables
-                    );
-                  }
-                })(),
-              ]);
-
-              if (needFinalizeCoinType.length > 0) {
-                sceneMovedToSelectDerivation.current = true;
-                sceneTransition.replace("select-derivation-path", {
-                  vaultId,
-                  chainIds: needFinalizeCoinType,
-
-                  totalCount: needFinalizeCoinType.length,
-
-                  skipWelcome,
-                });
-              } else {
-                // 어차피 bip44 coin type selection과 ethereum ledger app이 동시에 필요한 경우는 없다.
-                // (ledger에서는 coin type이 app당 할당되기 때문에...)
-                if (keyType === "ledger") {
-                  if (!fallbackEthereumLedgerApp) {
-                    sceneTransition.push("enable-chains", {
-                      vaultId,
-                      keyType,
-                      candidateAddresses: [],
-                      isFresh: false,
-                      skipWelcome,
-                      fallbackEthereumLedgerApp: true,
-                      stepPrevious: stepPrevious,
-                      stepTotal: stepTotal,
-                    });
-                  } else if (ledgerEthereumAppNeeds.length > 0) {
-                    const keyInfo = keyRingStore.keyInfos.find(
-                      (keyInfo) => keyInfo.id === vaultId
-                    );
-                    if (!keyInfo) {
-                      throw new Error("KeyInfo not found");
-                    }
-                    if (keyInfo.insensitive["Ethereum"]) {
-                      await chainStore.enableChainInfoInUI(
-                        ...ledgerEthereumAppNeeds
-                      );
-                      replaceToWelcomePage();
-                    } else {
-                      const bip44Path = keyInfo.insensitive["bip44Path"];
-                      if (!bip44Path) {
-                        throw new Error("bip44Path not found");
-                      }
-                      sceneTransition.replaceAll("connect-ledger", {
-                        name: "",
-                        password: "",
-                        app: "Ethereum",
-                        bip44Path,
-
-                        appendModeInfo: {
-                          vaultId,
-                          afterEnableChains: ledgerEthereumAppNeeds,
-                        },
-                        stepPrevious: stepPrevious,
-                        stepTotal: stepTotal,
-                      });
-                    }
-                  } else {
-                    replaceToWelcomePage();
-                  }
-                } else {
-                  replaceToWelcomePage();
-                }
-              }
-            }}
+            onClick={save}
           />
           {fallbackEthereumLedgerApp ? (
             <React.Fragment>

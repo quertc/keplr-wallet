@@ -332,6 +332,7 @@ export const FinalizeKeyScene: FunctionComponent<{
           vaultId,
           candidateAddresses,
           isFresh: mnemonic?.isFresh ?? false,
+          skipWelcome: true,
           stepPrevious: stepPrevious,
           stepTotal: stepTotal,
         });

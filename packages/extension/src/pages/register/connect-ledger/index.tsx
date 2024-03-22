@@ -264,13 +264,13 @@ export const ConnectLedgerScene: FunctionComponent<{
               }}
             >
               <Stack gutter="0.5rem">
-                {keys.map((key) => {
+                {keys.map((key, i) => {
                   const enabled = selectedKeyId === `${key.object_id}`;
                   return (
                     <KeyItem
                       key={key.object_id}
                       keyId={key.object_id}
-                      keyType={key.object_type}
+                      keyType={`${key.object_type} #${i}`}
                       enabled={enabled}
                       onClick={() => toggleKeySelection(`${key.object_id}`)}
                     />
