@@ -27,6 +27,8 @@ import { useTheme } from "styled-components";
 import { Column, Columns } from "../../../components/column";
 import { Checkbox } from "../../../components/checkbox";
 import SimpleBar from "simplebar-react";
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { encodeSecp256k1Pubkey, pubkeyToAddress } from "@cosmjs/amino";
 
 type Step = "unknown" | "connected";
 
@@ -269,8 +271,8 @@ export const ConnectLedgerScene: FunctionComponent<{
                   return (
                     <KeyItem
                       key={key.object_id}
-                      keyId={key.object_id}
-                      keyType={`${key.object_type} #${i}`}
+                      keyPk={key.public_key}
+                      keyNumber={i}
                       enabled={enabled}
                       onClick={() => toggleKeySelection(`${key.object_id}`)}
                     />
@@ -390,11 +392,11 @@ const StepView: FunctionComponent<{
 };
 
 const KeyItem: FunctionComponent<{
-  keyId: number;
-  keyType: string;
+  keyPk: Uint8Array;
+  keyNumber: number;
   enabled: boolean;
   onClick: () => void;
-}> = observer(({ keyId, keyType, enabled, onClick }) => {
+}> = observer(({ keyPk, keyNumber, enabled, onClick }) => {
   const theme = useTheme();
 
   return (
@@ -421,7 +423,7 @@ const KeyItem: FunctionComponent<{
       <Columns sum={1}>
         <XAxis alignY="center">
           <YAxis>
-            <Subtitle2>{keyType}</Subtitle2>
+            <Subtitle2>${keyNumber}</Subtitle2>
           </YAxis>
         </XAxis>
         <Column weight={1} />
@@ -434,10 +436,12 @@ const KeyItem: FunctionComponent<{
                   : ColorPalette.white
               }
             >
-              Key Id
+              Address
             </Subtitle3>
             <Gutter size="0.25rem" />
-            <Subtitle3 color={ColorPalette["gray-300"]}>{keyId}</Subtitle3>
+            <Subtitle3 color={ColorPalette["gray-300"]}>
+              {pubkeyToAddress(encodeSecp256k1Pubkey(keyPk), "celestia")}
+            </Subtitle3>
           </YAxis>
           <Gutter size="1rem" />
           <Checkbox
