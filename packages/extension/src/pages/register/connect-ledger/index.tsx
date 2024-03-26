@@ -423,7 +423,7 @@ const KeyItem: FunctionComponent<{
       <Columns sum={1}>
         <XAxis alignY="center">
           <YAxis>
-            <Subtitle2>${keyNumber}</Subtitle2>
+            <Subtitle2>#{keyNumber}</Subtitle2>
           </YAxis>
         </XAxis>
         <Column weight={1} />
@@ -436,7 +436,7 @@ const KeyItem: FunctionComponent<{
                   : ColorPalette.white
               }
             >
-              Address
+              Key Address
             </Subtitle3>
             <Gutter size="0.25rem" />
             <Subtitle3 color={ColorPalette["gray-300"]}>
